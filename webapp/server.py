@@ -32,9 +32,16 @@ class WebAppServer:
         self.app.router.add_post("/api/chat/send", self.api_chat_send)
         self.app.router.add_get("/api/settings", self.api_settings_get)
         self.app.router.add_post("/api/settings", self.api_settings_set)
-        self.app.router.add_get("/api/market", self.api_market)
+        self.app.router.add_get("/ping", self.api_ping)
+        self.app.router.add_get("/health", self.api_ping)
+        self.app.router.add_head("/ping", self.api_ping)
+        self.app.router.add_head("/health", self.api_ping)
+        self.app.router.add_head("/", self.api_ping)
 
         self.app.router.add_static("/static", path=str(static_dir), name="static")
+
+    async def api_ping(self, request: web.Request) -> web.Response:
+        return web.Response(text="OK", content_type="text/plain")
 
     async def handle_index(self, request: web.Request) -> web.Response:
         index_path = Path(__file__).parent / "static" / "index.html"
