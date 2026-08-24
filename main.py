@@ -62,12 +62,22 @@ async def main():
         if tg_service.notifier:
             await tg_service.notifier.notify_balance_change(old_b, new_b)
 
+    async def on_session_expired():
+        if tg_service.notifier:
+            await tg_service.notifier.notify_session_expired()
+
+    async def on_review_reward(buyer, order_id, promo):
+        if tg_service.notifier:
+            await tg_service.notifier.notify_review_reward(buyer, order_id, promo)
+
     runner = FunPayRunner(
         client=funpay_client,
         on_order_callback=on_order_delivered,
         on_raise_callback=on_lots_raised,
         on_message_callback=on_chat_message,
         on_balance_callback=on_balance_changed,
+        on_session_expired_callback=on_session_expired,
+        on_review_reward_callback=on_review_reward,
     )
     runner.auto_delivery.on_out_of_stock = on_order_out_of_stock
 

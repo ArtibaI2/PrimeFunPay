@@ -262,6 +262,7 @@ def _render_current_settings_kb():
         ai_support=settings.ENABLE_AI_SUPPORT,
         upsell=settings.ENABLE_UPSELL,
         night_surge=settings.ENABLE_NIGHT_SURGE,
+        review_booster=settings.ENABLE_REVIEW_BOOSTER,
     )
 
 @router.message(F.text == "⚙️ Настройки")
@@ -311,7 +312,14 @@ async def cb_toggle_night(query: CallbackQuery):
     settings.ENABLE_NIGHT_SURGE = not settings.ENABLE_NIGHT_SURGE
     with contextlib.suppress(Exception):
         await query.message.edit_reply_markup(reply_markup=_render_current_settings_kb())
-    await query.answer(f"Ночной смарт-прайсинг: {'Включен' if settings.ENABLE_NIGHT_SURGE else 'Выключен'}")
+    await query.answer(f"Ночной Surge: {'Включен' if settings.ENABLE_NIGHT_SURGE else 'Выключен'}")
+
+@router.callback_query(F.data == "toggle_booster")
+async def cb_toggle_booster(query: CallbackQuery):
+    settings.ENABLE_REVIEW_BOOSTER = not settings.ENABLE_REVIEW_BOOSTER
+    with contextlib.suppress(Exception):
+        await query.message.edit_reply_markup(reply_markup=_render_current_settings_kb())
+    await query.answer(f"Буст 5★ отзывов: {'Включен' if settings.ENABLE_REVIEW_BOOSTER else 'Выключен'}")
 
 @router.callback_query(F.data == "toggle_upsell")
 async def cb_toggle_upsell(query: CallbackQuery):

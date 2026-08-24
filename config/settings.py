@@ -86,9 +86,21 @@ class Settings(BaseSettings):
         default=True,
         description="Enable cross-sell product recommendations after delivery",
     )
+    ENABLE_REVIEW_BOOSTER: bool = Field(
+        default=True,
+        description="Enable automatic review booster & cashback bonuses",
+    )
+    REVIEW_BOOSTER_PROMO: str = Field(
+        default="БОНУС10",
+        description="Promo code or gift text for buyers who leave a 5-star review",
+    )
+    REVIEW_BOOSTER_MIN_DELAY: int = Field(
+        default=300,
+        description="Seconds to wait after delivery before sending review reminder (default: 5 min)",
+    )
     ENABLE_NIGHT_SURGE: bool = Field(
-        default=False,
-        description="Enable night surge pricing during low-competition hours",
+        default=True,
+        description="Enable night surge pricing during low-competition hours (23:00 - 07:00)",
     )
     NIGHT_SURGE_PERCENT: float = Field(
         default=15.0,

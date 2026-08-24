@@ -89,3 +89,28 @@ class TelegramNotifier:
             icon = "✅" if r.success else ("⏳" if "подождите" in r.message.lower() else "❌")
             lines.append(f"{icon} <b>{r.category_name}:</b> {r.message}")
         await self._send_to_admins("\n".join(lines))
+
+    async def notify_session_expired(self) -> None:
+        """Sends an urgent alert when FunPay golden_key session expires."""
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        text = (
+            "🚨 <b>ВНИМАНИЕ: СЕССИЯ FUNPAY ЗАВЕРШЕНА!</b>\n\n"
+            "• Ваш <code>golden_key</code> устарел или был сброшен на FunPay.\n"
+            "• Автовыдача товаров и автоподнятие лотов <b>приостановлены</b>.\n\n"
+            "👇 <i>Пожалуйста, обновите ключ для возобновления работы:</i>"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔑 Обновить golden_key", callback_data="auth_link_account")],
+            [InlineKeyboardButton(text="🔄 Проверить сессию", callback_data="auth_refresh_profile")],
+        ])
+        await self._send_to_admins(text, reply_markup=kb)
+
+    async def notify_review_reward(self, buyer_username: str, order_id: str, promo: str) -> None:
+        """Sends an alert when 5-star review bonus is delivered."""
+        text = (
+            f"⭐ <b>Получен 5★ отзыв от покупателя {buyer_username}!</b>\n\n"
+            f"• <b>Заказ:</b> <code>#{order_id}</code>\n"
+            f"• 🎁 <b>Бонус покупателю:</b> Промокод <code>{promo}</code> автоматически отправлен в чат FunPay."
+        )
+        await self._send_to_admins(text)
+

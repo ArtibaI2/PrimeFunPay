@@ -241,4 +241,30 @@ def test_market_analytics_report_formatting():
     assert "176.00" in text
     assert "🔥 ВЫСОКИЙ" in text
 
+def test_night_surge_pricing():
+    from funpay.services.night_surge import NightSurgeService
+    surge_service = NightSurgeService(surge_percent=20.0)
+    
+    # Test during night hour (e.g. 23:00)
+    assert surge_service.is_night_time(current_hour=23) is True
+    assert surge_service.is_night_time(current_hour=3) is True
+    assert surge_service.is_night_time(current_hour=14) is False
+    
+    # Test price calculation
+    surged = surge_service.calculate_surge_price(base_price=100.0)
+    assert surged >= 100.0
+
+def test_review_booster_service():
+    from funpay.services.review_booster import ReviewBoosterService
+    booster = ReviewBoosterService(client=None)
+    assert booster.rewarded_orders == set()
+    assert len(booster.pending_review_tasks) == 0
+
+def test_session_monitor_service():
+    from funpay.services.session_monitor import SessionMonitorService
+    monitor = SessionMonitorService(client=None, check_interval_seconds=60)
+    assert monitor.check_interval == 60
+    assert monitor.last_health_status is True
+
+
 

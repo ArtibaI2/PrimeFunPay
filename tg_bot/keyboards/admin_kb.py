@@ -101,7 +101,8 @@ def get_settings_keyboard(
     smart_pricing: bool = False,
     ai_support: bool = True,
     upsell: bool = True,
-    night_surge: bool = False,
+    night_surge: bool = True,
+    review_booster: bool = True,
 ) -> InlineKeyboardMarkup:
     """Returns inline toggles for bot settings."""
     delivery_status = "✅ Вкл" if auto_delivery else "❌ Выкл"
@@ -111,6 +112,7 @@ def get_settings_keyboard(
     ai_status = "✅ Вкл" if ai_support else "❌ Выкл"
     upsell_status = "✅ Вкл" if upsell else "❌ Выкл"
     surge_status = "✅ Вкл" if night_surge else "❌ Выкл"
+    booster_status = "✅ Вкл" if review_booster else "❌ Выкл"
 
     inline_kb = [
         [
@@ -123,10 +125,11 @@ def get_settings_keyboard(
         ],
         [
             InlineKeyboardButton(text=f"🎯 Смарт-цена: {pricing_status}", callback_data="toggle_pricing"),
-            InlineKeyboardButton(text=f"🌙 Ночь +15%: {surge_status}", callback_data="toggle_night"),
+            InlineKeyboardButton(text=f"🌙 Ночь Surge: {surge_status}", callback_data="toggle_night"),
         ],
         [
-            InlineKeyboardButton(text=f"🎁 Допродажи (Upsell): {upsell_status}", callback_data="toggle_upsell"),
+            InlineKeyboardButton(text=f"⭐ Буст 5★ отзывов: {booster_status}", callback_data="toggle_booster"),
+            InlineKeyboardButton(text=f"🎁 Допродажи: {upsell_status}", callback_data="toggle_upsell"),
         ],
         [
             InlineKeyboardButton(text="🔄 Обновить статус", callback_data="refresh_settings"),

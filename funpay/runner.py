@@ -10,6 +10,9 @@ from .services.auto_delivery import AutoDeliveryService
 from .services.auto_raise import AutoRaiseService
 from .services.auto_response import AutoResponseService
 from .services.smart_pricing import SmartPricingService
+from .services.night_surge import NightSurgeService
+from .services.review_booster import ReviewBoosterService
+from .services.session_monitor import SessionMonitorService
 
 class FunPayRunner:
     def __init__(
@@ -19,12 +22,16 @@ class FunPayRunner:
         on_message_callback: Optional[Callable] = None,
         on_raise_callback: Optional[Callable] = None,
         on_balance_callback: Optional[Callable] = None,
+        on_session_expired_callback: Optional[Callable] = None,
+        on_review_reward_callback: Optional[Callable] = None,
     ):
         self.client = client
         self.on_order = on_order_callback
         self.on_message = on_message_callback
         self.on_raise = on_raise_callback
         self.on_balance = on_balance_callback
+        self.on_session_expired = on_session_expired_callback
+        self.on_review_reward = on_review_reward_callback
 
         self.auto_delivery = AutoDeliveryService(
             client=self.client,
@@ -41,6 +48,15 @@ class FunPayRunner:
         self.smart_pricing = SmartPricingService(
             client=self.client,
         )
+        self.night_surge = NightSurgeService()
+        self.review_booster = ReviewBoosterService(
+            client=self.client,
+            on_reward_sent_callback=self.on_review_reward,
+        )
+        self.session_monitor = SessionMonitorService(
+            client=self.client,
+            on_session_expired_callback=self.on_session_expired,
+        )
 
         self.is_running = False
         self.known_order_ids: Set[str] = set()
@@ -52,9 +68,13 @@ class FunPayRunner:
         if self.on_order:
             await self.on_order(order, item_content)
 
-        # Schedule post-purchase review reminder in 15 minutes
+        # Schedule Review Booster 5-star invitation
         if order.chat_node_id:
-            asyncio.create_task(self._schedule_review_reminder(order.chat_node_id, order.buyer_username))
+            self.review_booster.schedule_review_reminder(
+                order_id=order.order_id,
+                chat_node_id=order.chat_node_id,
+                buyer_username=order.buyer_username,
+            )
 
     async def _schedule_review_reminder(self, chat_node_id: int, buyer_username: str, delay_seconds: int = 900) -> None:
         """Sends a polite review and confirmation reminder 15 minutes after delivery."""
@@ -196,6 +216,7 @@ class FunPayRunner:
             self.auto_raise.start()
 
         self.smart_pricing.start(categories_provider=lambda: self.auto_raise.categories)
+        self.session_monitor.start()
         self._background_tasks.append(asyncio.create_task(self.run_balance_checker()))
 
         await self.run_order_checker()
@@ -205,6 +226,7 @@ class FunPayRunner:
         self.is_running = False
         self.auto_raise.stop()
         self.smart_pricing.stop()
+        self.session_monitor.stop()
         for t in self._background_tasks:
             if not t.done():
                 t.cancel()
