@@ -102,6 +102,18 @@ class Settings(BaseSettings):
         default=8080,
         description="Web dashboard HTTP port",
     )
+
+    @field_validator("WEBAPP_PORT", mode="before")
+    @classmethod
+    def parse_port(cls, v):
+        import os
+        port_env = os.environ.get("PORT")
+        if port_env and str(port_env).isdigit():
+            return int(port_env)
+        if v is not None and str(v).isdigit():
+            return int(v)
+        return 8080
+
     WEBAPP_URL: Optional[str] = Field(
         default=None,
         description="Public HTTPS URL for Telegram WebApp",

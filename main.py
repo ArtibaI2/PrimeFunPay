@@ -78,24 +78,25 @@ async def main():
     else:
         logger.warning("FUNPAY_GOLDEN_KEY is not set. Fill in .env file to enable FunPay automation.")
 
-    tasks = []
-
     # Start WebApp Dashboard
-    tasks.append(asyncio.create_task(webapp_server.start()))
+    await webapp_server.start()
 
+    # Start FunPay Runner if golden_key is configured
     if settings.FUNPAY_GOLDEN_KEY and settings.FUNPAY_GOLDEN_KEY != "your_golden_key_here":
-        tasks.append(asyncio.create_task(runner.start()))
+        await runner.start()
 
+    # Start Telegram Bot polling
     if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_BOT_TOKEN != "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz":
-        tasks.append(asyncio.create_task(tg_service.start()))
+        asyncio.create_task(tg_service.start())
+    else:
+        logger.warning("TELEGRAM_BOT_TOKEN is not set. Telegram Bot polling skipped.")
 
-    if not tasks:
-        logger.warning("Ни FunPay, ни Telegram не настроены! Укажите FUNPAY_GOLDEN_KEY и TELEGRAM_BOT_TOKEN в .env.")
-        while True:
-            await asyncio.sleep(10)
+    logger.info("✅ All FunPay Bot services are running 24/7.")
 
+    # Keep application running indefinitely
+    stop_event = asyncio.Event()
     try:
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await stop_event.wait()
     except (asyncio.CancelledError, KeyboardInterrupt):
         logger.info("Received termination signal. Shutting down gracefully...")
     finally:
