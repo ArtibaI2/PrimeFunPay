@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FunPay Bot — Панель Управления</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="glass-header">
+      <div class="user-brand">
+        <div class="avatar-ring">
+          <div class="avatar-icon">FP</div>
+        </div>
+        <div class="user-meta">
+          <h2 id="accountUsername">Artiba4548</h2>
+          <span class="badge-status online"><span class="pulse-dot"></span> Онлайн</span>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="stat-pill balance-pill">
+          <span class="label">Баланс</span>
+          <span class="value" id="accountBalance">0.00 ₽</span>
+        </div>
+        <button id="refreshBtn" class="icon-btn" title="Обновить">🔄</button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs glass-panel">
+      <button class="nav-btn active" data-tab="analyticsTab">📊 Аналитика</button>
+      <button class="nav-btn" data-tab="stockTab">📦 Склад</button>
+      <button class="nav-btn" data-tab="ordersTab">📋 Заказы</button>
+      <button class="nav-btn" data-tab="settingsTab">⚙️ Настройки</button>
+    </nav>
+
+    <!-- Tab 1: Analytics -->
+    <main id="analyticsTab" class="tab-content active">
+      <!-- Metric Cards Grid -->
+      <div class="metrics-grid">
+        <div class="metric-card glass-card">
+          <div class="card-icon revenue-icon">💰</div>
+          <div class="card-content">
+            <span class="card-title">Выручка за 7 дней</span>
+            <h3 class="card-value" id="metricWeekRevenue">0.00 ₽</h3>
+            <span class="card-sub" id="metricTodayRevenue">Сегодня: 0.00 ₽</span>
+          </div>
+        </div>
+        <div class="metric-card glass-card">
+          <div class="card-icon orders-icon">🛒</div>
+          <div class="card-content">
+            <span class="card-title">Выдано заказов</span>
+            <h3 class="card-value" id="metricDeliveredOrders">0</h3>
+            <span class="card-sub" id="metricTotalOrders">Всего в базе: 0</span>
+          </div>
+        </div>
+        <div class="metric-card glass-card">
+          <div class="card-icon check-icon">📈</div>
+          <div class="card-content">
+            <span class="card-title">Средний чек</span>
+            <h3 class="card-value" id="metricAvgCheck">0.00 ₽</h3>
+            <span class="card-sub">По успешным сделкам</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Chart -->
+      <div class="glass-card chart-card">
+        <div class="card-header">
+          <h3>📈 Динамика продаж</h3>
+          <span class="tag-badge">Live</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="salesChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Top Selling Products -->
+      <div class="glass-card table-card">
+        <div class="card-header">
+          <h3>🏆 Топ продаваемых товаров</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="custom-table" id="topProductsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Товар</th>
+                <th>Продажи</th>
+                <th>Выручка</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="4" class="text-center text-muted">Загрузка данных...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- Tab 2: Stock Management -->
+    <main id="stockTab" class="tab-content">
+      <div class="section-header">
+        <h3>📦 Управление остатками</h3>
+        <button id="addStockModalBtn" class="primary-btn">➕ Добавить товар</button>
+      </div>
+      <div class="lots-grid" id="lotsContainer">
+        <div class="text-center text-muted p-4">Загрузка товаров...</div>
+      </div>
+    </main>
+
+    <!-- Tab 3: Orders -->
+    <main id="ordersTab" class="tab-content">
+      <div class="section-header">
+        <h3>📋 Последние заказы FunPay</h3>
+      </div>
+      <div class="orders-list" id="ordersContainer">
+        <div class="text-center text-muted p-4">Загрузка заказов...</div>
+      </div>
+    </main>
+
+    <!-- Tab 4: Settings -->
+    <main id="settingsTab" class="tab-content">
+      <div class="glass-card settings-card">
+        <h3>⚙️ Настройки автоматизации</h3>
+        <div class="settings-list">
+          <div class="setting-item">
+            <div class="setting-info">
+              <h4>⚡ Автовыдача товаров</h4>
+              <p>Мгновенная доставка товара при оплате заказа</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set_auto_delivery" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <h4>🚀 Автоподнятие лотов</h4>
+              <p>Периодический подъем всех категорий по таймеру</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set_auto_raise" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <h4>🤖 AI-Консультант и автоответчик</h4>
+              <p>Умные ответы на вопросы покупателей 24/7</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set_ai_support" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <h4>🎯 Смарт-цена (Auto-Undercut)</h4>
+              <p>Мониторинг цен конкурентов в категориях</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set_smart_pricing">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <h4>🌙 Ночной смарт-прайсинг (+15%)</h4>
+              <p>Повышение маржинальности в ночные часы (23:00 - 07:00)</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set_night_surge">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <h4>🎁 Кросс-селл допродажи</h4>
+              <p>Рекомендация сопутствующих товаров после покупки</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set_upsell" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal for Adding Stock -->
+    <div id="stockModal" class="modal-backdrop hidden">
+      <div class="modal-card glass-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">➕ Пополнение склада</h3>
+          <button id="closeModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label for="modalLotSelect">Выберите товар:</label>
+          <select id="modalLotSelect" class="custom-select"></select>
+
+          <label for="modalStockText">Ключи / строки товаров (по одному на строку):</label>
+          <textarea id="modalStockText" class="custom-textarea" rows="6" placeholder="KEY-1111&#10;KEY-2222&#10;login:password"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button id="submitStockBtn" class="primary-btn">Загрузить на склад</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
