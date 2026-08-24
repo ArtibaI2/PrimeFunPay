@@ -84,7 +84,8 @@ async def cmd_stats(message: Message, funpay_client: FunPayClient):
 async def cb_stats_period(query: CallbackQuery, funpay_client: FunPayClient):
     period_code = query.data.split(":")[1]
     text = await build_stats_text(funpay_client, period_code)
-    await query.message.edit_text(text, parse_mode="HTML", reply_markup=get_stats_keyboard(period_code))
+    with contextlib.suppress(Exception):
+        await query.message.edit_text(text, parse_mode="HTML", reply_markup=get_stats_keyboard(period_code))
     await query.answer()
 
 @router.callback_query(F.data == "stats_top")
