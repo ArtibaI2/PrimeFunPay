@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 
 from config.settings import settings
 from funpay.client import FunPayClient
-from utils.auth_helper import is_user_authorized
+from utils.auth_helper import is_user_authorized, get_or_create_client_for_user
 
 router = Router(name="chat_center_router")
 
@@ -24,8 +24,11 @@ async def cmd_chat_center(message: Message, funpay_client: FunPayClient):
     if not await is_admin(message.from_user.id):
         return
 
-    profile = await funpay_client.check_auth()
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    profile = user_client.profile or await user_client.check_auth()
     unread = profile.unread_chats_count if profile else 0
+    if user_client != funpay_client:
+        await user_client.close()
 
     text = (
         "💬 <b>Чат-центр FunPay</b>\n\n"
@@ -55,7 +58,7 @@ async def cb_reply_chat(query: CallbackQuery, state: FSMContext):
 
 @router.message(ReplyFSM.waiting_for_reply, F.text)
 async def process_fsm_reply(message: Message, state: FSMContext, funpay_client: FunPayClient):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     data = await state.get_data()
@@ -65,10 +68,14 @@ async def process_fsm_reply(message: Message, state: FSMContext, funpay_client: 
     if not chat_node_id:
         return await message.answer("❌ Ошибка: ID чата не найден.")
 
-    sent = await funpay_client.send_chat_message(
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    sent = await user_client.send_chat_message(
         chat_node_id=chat_node_id,
         message=message.text,
     )
+    if user_client != funpay_client:
+        await user_client.close()
+
     if sent:
         await message.answer(
             f"✅ <b>Сообщение отправлено в чат #{chat_node_id}!</b>\n\n"
@@ -80,7 +87,7 @@ async def process_fsm_reply(message: Message, state: FSMContext, funpay_client: 
 
 @router.message(Command("reply"))
 async def cmd_reply_manual(message: Message, funpay_client: FunPayClient):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     args = message.text.split(maxsplit=2)
@@ -96,10 +103,14 @@ async def cmd_reply_manual(message: Message, funpay_client: FunPayClient):
         return await message.answer("❌ ID чата должен быть числом.")
 
     chat_node_id = int(raw_node)
-    sent = await funpay_client.send_chat_message(
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    sent = await user_client.send_chat_message(
         chat_node_id=chat_node_id,
         message=text_to_send,
     )
+    if user_client != funpay_client:
+        await user_client.close()
+
     if sent:
         await message.answer(
             f"✅ <b>Сообщение отправлено в чат #{chat_node_id}!</b>\n\n"
@@ -112,7 +123,7 @@ async def cmd_reply_manual(message: Message, funpay_client: FunPayClient):
 @router.message(F.reply_to_message)
 async def handle_telegram_reply_to_buyer(message: Message, funpay_client: FunPayClient):
     """Intercepts direct Telegram quote replies to bot notification messages."""
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     reply_msg = message.reply_to_message
@@ -126,10 +137,14 @@ async def handle_telegram_reply_to_buyer(message: Message, funpay_client: FunPay
         return
 
     chat_node_id = int(m.group(1))
-    sent = await funpay_client.send_chat_message(
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    sent = await user_client.send_chat_message(
         chat_node_id=chat_node_id,
         message=message.text,
     )
+    if user_client != funpay_client:
+        await user_client.close()
+
     if sent:
         await message.reply(
             f"✅ <b>Ответ доставлен покупателю в чат #{chat_node_id}!</b>",

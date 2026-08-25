@@ -16,16 +16,25 @@ from tg_bot.keyboards.admin_kb import (
     get_market_keyboard,
 )
 
-from utils.auth_helper import is_user_authorized
+from utils.auth_helper import is_user_authorized, get_or_create_client_for_user
 
 router = Router(name="admin_router")
 
 async def is_admin(user_id: int) -> bool:
     return await is_user_authorized(user_id)
 
-async def build_stats_text(funpay_client: FunPayClient, period_code: str = "today") -> str:
-    profile = await funpay_client.check_auth()
-    profile_info = "⚠️ Не удалось получить профиль FunPay"
+async def build_stats_text(funpay_client: FunPayClient, period_code: str = "today", tg_id: Optional[int] = None) -> str:
+    client = await get_or_create_client_for_user(tg_id, funpay_client) if tg_id else funpay_client
+    profile = None
+    try:
+        profile = client.profile or await client.check_auth()
+    except Exception:
+        profile = None
+    finally:
+        if client != funpay_client:
+            await client.close()
+
+    profile_info = "⚠️ <b>Не удалось получить профиль FunPay</b>\n<i>Привяжите аккаунт через команду /start или проверьте golden_key.</i>"
     if profile:
         bal_line = f"💰 <b>Баланс:</b> <code>{profile.balance_rub:,.2f} ₽</code>"
         if profile.balance_available_rub != profile.balance_rub and profile.balance_available_rub > 0:
@@ -77,13 +86,13 @@ async def cmd_stats(message: Message, funpay_client: FunPayClient):
     if not await is_admin(message.from_user.id):
         return
 
-    text = await build_stats_text(funpay_client, "today")
+    text = await build_stats_text(funpay_client, "today", tg_id=message.from_user.id)
     await message.answer(text, parse_mode="HTML", reply_markup=get_stats_keyboard("today"))
 
 @router.callback_query(F.data.startswith("stats_period:"))
 async def cb_stats_period(query: CallbackQuery, funpay_client: FunPayClient):
     period_code = query.data.split(":")[1]
-    text = await build_stats_text(funpay_client, period_code)
+    text = await build_stats_text(funpay_client, period_code, tg_id=query.from_user.id)
     with contextlib.suppress(Exception):
         await query.message.edit_text(text, parse_mode="HTML", reply_markup=get_stats_keyboard(period_code))
     await query.answer()
@@ -127,12 +136,13 @@ async def cmd_market_analysis(message: Message, funpay_client: FunPayClient):
 
     load_msg = await message.answer("⏳ <i>Сканирование категорий FunPay и анализ трендов конкурентов за 24 часа...</i>", parse_mode="HTML")
 
-    market_svc = get_market_service(funpay_client)
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    market_svc = get_market_service(user_client)
 
     categories = {}
-    profile = funpay_client.profile or await funpay_client.check_auth()
+    profile = user_client.profile or await user_client.check_auth()
     if profile:
-        user_lots = await funpay_client.get_user_lots(profile.user_id)
+        user_lots = await user_client.get_user_lots(profile.user_id)
         for l in user_lots:
             nid = l.get("node_id")
             cname = l.get("category_name", str(nid))
@@ -151,6 +161,9 @@ async def cmd_market_analysis(message: Message, funpay_client: FunPayClient):
     report = await market_svc.generate_market_report(categories)
     text = market_svc.format_telegram_report(report)
 
+    if user_client != funpay_client:
+        await user_client.close()
+
     await load_msg.edit_text(text, parse_mode="HTML", reply_markup=get_market_keyboard())
 
 @router.callback_query(F.data == "market_refresh")
@@ -159,11 +172,12 @@ async def cb_market_refresh(query: CallbackQuery, funpay_client: FunPayClient):
     with contextlib.suppress(Exception):
         await query.message.edit_text("⏳ <i>Обновление анализа рынка по конкурентам...</i>", parse_mode="HTML")
 
-    market_svc = get_market_service(funpay_client)
+    user_client = await get_or_create_client_for_user(query.from_user.id, funpay_client)
+    market_svc = get_market_service(user_client)
     categories = {}
-    profile = funpay_client.profile or await funpay_client.check_auth()
+    profile = user_client.profile or await user_client.check_auth()
     if profile:
-        user_lots = await funpay_client.get_user_lots(profile.user_id)
+        user_lots = await user_client.get_user_lots(profile.user_id)
         for l in user_lots:
             nid = l.get("node_id")
             cname = l.get("category_name", str(nid))
@@ -182,6 +196,9 @@ async def cb_market_refresh(query: CallbackQuery, funpay_client: FunPayClient):
     report = await market_svc.generate_market_report(categories, force_refresh=True)
     text = market_svc.format_telegram_report(report)
 
+    if user_client != funpay_client:
+        await user_client.close()
+
     with contextlib.suppress(Exception):
         await query.message.edit_text(text, parse_mode="HTML", reply_markup=get_market_keyboard())
 
@@ -192,7 +209,10 @@ async def cmd_recent_orders(message: Message, funpay_client: FunPayClient):
         return
 
     # 1. Fetch live recent orders directly from FunPay
-    orders = await funpay_client.get_trade_orders()
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    orders = await user_client.get_trade_orders()
+    if user_client != funpay_client:
+        await user_client.close()
 
     if orders:
         status_map = {
@@ -343,11 +363,14 @@ async def cmd_raise_now(message: Message, funpay_client: FunPayClient):
 
     msg = await message.answer("🚀 <i>Запуск процесса поднятия предложений по всем категориям...</i>", parse_mode="HTML")
     
-    profile = funpay_client.profile or await funpay_client.check_auth()
+    user_client = await get_or_create_client_for_user(message.from_user.id, funpay_client)
+    profile = user_client.profile or await user_client.check_auth()
     if not profile:
-        return await msg.edit_text("❌ Ошибка авторизации FunPay.")
+        if user_client != funpay_client:
+            await user_client.close()
+        return await msg.edit_text("❌ Ошибка авторизации FunPay. Проверьте golden_key или привяжите аккаунт через /start.")
 
-    user_lots = await funpay_client.get_user_lots(profile.user_id)
+    user_lots = await user_client.get_user_lots(profile.user_id)
     categories = {}
     for l in user_lots:
         nid = l.get("node_id")
@@ -356,13 +379,18 @@ async def cmd_raise_now(message: Message, funpay_client: FunPayClient):
             categories[nid] = cname
 
     if not categories:
+        if user_client != funpay_client:
+            await user_client.close()
         return await msg.edit_text("❌ У вас не найдено активных лотов/категорий для поднятия.")
 
     results = []
     for nid, cname in categories.items():
-        res = await funpay_client.raise_lots(node_id=nid, category_name=cname)
+        res = await user_client.raise_lots(node_id=nid, category_name=cname)
         results.append(res)
         await asyncio.sleep(1.5)
+
+    if user_client != funpay_client:
+        await user_client.close()
 
     lines = ["🚀 <b>Результаты автоподнятия лотов:</b>\n"]
     for r in results:
