@@ -32,9 +32,9 @@ RUN mkdir -p storage/logs storage/goods
 # Expose Web Dashboard port
 EXPOSE 8080
 
-# Healthcheck
+# Healthcheck (supports custom PORT from cloud providers like Render)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8080/api/settings || exit 1
+    CMD sh -c "curl -f http://localhost:${PORT:-8080}/ping || exit 1"
 
 # Run bot
 CMD ["python", "main.py"]
